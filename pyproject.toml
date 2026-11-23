@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "crycon"
+version = "0.1.0"
+description = "Public Web3 profile evidence and confidence scoring"
+readme = "README.md"
+requires-python = ">=3.11"
+keywords = ["web3", "osint", "fastapi", "postgresql", "supabase"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: FastAPI",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+]
+dependencies = [
+    "fastapi>=0.115,<1",
+    "python-dotenv>=1,<2",
+    "requests>=2,<3",
+    "supabase>=2,<3",
+    "python-telegram-bot==21.6",
+    "uvicorn>=0.32,<1",
+]
+
+[project.urls]
+Repository = "https://github.com/alacrittywow/crycon"
+Documentation = "https://github.com/alacrittywow/crycon#readme"
+
+[project.optional-dependencies]
+dev = [
+    "httpx>=0.27,<1",
+    "pytest>=8,<9",
+    "psycopg[binary]>=3.2,<4",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "--strict-markers"
+markers = [
+    "integration: requires an isolated PostgreSQL database",
+]

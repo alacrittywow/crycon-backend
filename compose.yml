@@ -1,0 +1,59 @@
+services:
+  api:
+    build: .
+    command: ["uvicorn", "crycon.api:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment: &crycon-environment
+      CRYCON_ENV_FILE: ""
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_KEY: ${SUPABASE_KEY:-}
+      CRYCON_ADMIN_API_KEY: ${CRYCON_ADMIN_API_KEY:-}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      WEB3BIO_API_KEY: ${WEB3BIO_API_KEY:-}
+    ports:
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+  worker:
+    build: .
+    command: ["python", "worker.py", "--loop", "--poll-interval", "2"]
+    environment: *crycon-environment
+    stop_grace_period: 30s
+    restart: unless-stopped
+
+  postgres-test:
+    image: postgres:16-alpine
+    profiles: ["integration"]
+    environment:
+      POSTGRES_DB: crycon_test
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "127.0.0.1:55432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d crycon_test"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  test:
+    profiles: ["integration"]
+    build:
+      context: .
+      target: test
+    environment:
+      CRYCON_ENV_FILE: ""
+      CRYCON_TEST_DATABASE_URL: postgresql://postgres:postgres@postgres-test:5432/crycon_test
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+    command: ["python", "-m", "pytest", "-q"]

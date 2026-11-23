@@ -1,0 +1,16 @@
+.git
+.github
+.idea
+.venv
+.env
+.env.*
+!.env.example
+__pycache__
+*.py[cod]
+.pytest_cache
+*.csv
+outputs
+work
+docs
+*.diff
+*.zip
