@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Mirae Telegram Bot MVP.
+Crycon Telegram Bot.
 
 Commands:
     /start
@@ -25,6 +25,8 @@ from telegram.ext import (
     Application,
     CommandHandler,
     ContextTypes,
+    MessageHandler,
+    filters,
 )
 
 from crycon.config import load_settings
@@ -38,6 +40,24 @@ from db_supabase import (
 )
 
 MAX_MESSAGE_LEN = 3900
+
+
+def parse_allowed_user_ids(value: str) -> frozenset[int]:
+    """Parse a fail-closed Telegram allowlist without exposing its contents."""
+    items = [item for item in re.split(r"[\s,|]+", value.strip()) if item]
+    if not items:
+        raise RuntimeError(
+            "TELEGRAM_ALLOWED_USER_IDS is required; add at least one numeric Telegram user ID"
+        )
+
+    try:
+        user_ids = frozenset(int(item) for item in items)
+    except ValueError:
+        raise ValueError("TELEGRAM_ALLOWED_USER_IDS must contain only numeric user IDs") from None
+
+    if any(user_id <= 0 for user_id in user_ids):
+        raise ValueError("TELEGRAM_ALLOWED_USER_IDS must contain only positive user IDs")
+    return user_ids
 
 
 def esc(value: Any) -> str:
@@ -240,7 +260,7 @@ def format_full_profile(client, candidate_id: int) -> str:
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     text = """
-<b>Mirae Web3 Trust Bot</b>
+<b>Crycon Web3 Research Bot</b>
 
 Commands:
 
@@ -269,6 +289,14 @@ Resolve X/ENS/Farcaster/Lens/wallet via public identity signals.
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await start_command(update, context)
+
+
+async def access_denied_command(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+) -> None:
+    if update.message:
+        await update.message.reply_text("Access denied.")
 
 
 async def top_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -465,23 +493,35 @@ async def job_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     await reply_long(update, text)
 
 
-def main() -> None:
-    token = load_settings().require("TELEGRAM_BOT_TOKEN")
+def build_application():
+    settings = load_settings()
+    token = settings.require("TELEGRAM_BOT_TOKEN")
+    allowed_user_ids = parse_allowed_user_ids(
+        settings.require("TELEGRAM_ALLOWED_USER_IDS")
+    )
 
     app = Application.builder().token(token).build()
+    allowed_users = filters.User(user_id=list(allowed_user_ids))
 
-    app.add_handler(CommandHandler("start", start_command))
-    app.add_handler(CommandHandler("help", help_command))
-    app.add_handler(CommandHandler("top", top_command))
-    app.add_handler(CommandHandler("search", search_command))
-    app.add_handler(CommandHandler("profile", profile_command))
-    app.add_handler(CommandHandler("full", full_command))
-    app.add_handler(CommandHandler("resolve", resolve_command))
-    app.add_handler(CommandHandler("resolve_full", resolve_full_command))
-    app.add_handler(CommandHandler("job", job_command))
+    app.add_handler(CommandHandler("start", start_command, filters=allowed_users))
+    app.add_handler(CommandHandler("help", help_command, filters=allowed_users))
+    app.add_handler(CommandHandler("top", top_command, filters=allowed_users))
+    app.add_handler(CommandHandler("search", search_command, filters=allowed_users))
+    app.add_handler(CommandHandler("profile", profile_command, filters=allowed_users))
+    app.add_handler(CommandHandler("full", full_command, filters=allowed_users))
+    app.add_handler(CommandHandler("resolve", resolve_command, filters=allowed_users))
+    app.add_handler(CommandHandler("resolve_full", resolve_full_command, filters=allowed_users))
+    app.add_handler(CommandHandler("job", job_command, filters=allowed_users))
+    app.add_handler(MessageHandler(filters.COMMAND & ~allowed_users, access_denied_command))
+
+    return app
+
+
+def main() -> None:
+    app = build_application()
 
     print("=" * 90)
-    print("Mirae Telegram Bot is running")
+    print("Crycon Telegram Bot is running")
     print("=" * 90)
 
     app.run_polling()

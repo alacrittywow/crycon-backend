@@ -30,6 +30,15 @@ services:
     stop_grace_period: 30s
     restart: unless-stopped
 
+  bot:
+    build: .
+    command: ["python", "bot.py"]
+    environment:
+      <<: *crycon-environment
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_ALLOWED_USER_IDS: ${TELEGRAM_ALLOWED_USER_IDS:-}
+    restart: unless-stopped
+
   postgres-test:
     image: postgres:16-alpine
     profiles: ["integration"]

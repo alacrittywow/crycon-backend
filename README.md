@@ -101,14 +101,15 @@ uvicorn crycon.api:app --reload
 ### Docker Compose
 
 ```bash
-docker compose up --build api worker
+docker compose up --build api worker bot
 docker compose --profile integration up -d postgres-test
 docker compose --profile integration run --rm test
 ```
 
 API публикуется только на `127.0.0.1:8000`. `postgres-test` — отдельная база для
 integration-тестов. Сервис `test` ждёт healthy PostgreSQL и запускает полный suite
-в отдельном Python 3.11 image.
+в отдельном Python 3.11 image. `bot` запускает Telegram polling и требует
+`TELEGRAM_BOT_TOKEN` и непустой allowlist `TELEGRAM_ALLOWED_USER_IDS` в `.env`.
 
 ## API
 
