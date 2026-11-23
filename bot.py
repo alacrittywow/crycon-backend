@@ -43,12 +43,10 @@ MAX_MESSAGE_LEN = 3900
 
 
 def parse_allowed_user_ids(value: str) -> frozenset[int]:
-    """Parse a fail-closed Telegram allowlist without exposing its contents."""
+    """Parse an optional Telegram allowlist without exposing its contents."""
     items = [item for item in re.split(r"[\s,|]+", value.strip()) if item]
     if not items:
-        raise RuntimeError(
-            "TELEGRAM_ALLOWED_USER_IDS is required; add at least one numeric Telegram user ID"
-        )
+        return frozenset()
 
     try:
         user_ids = frozenset(int(item) for item in items)
@@ -496,12 +494,14 @@ async def job_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 def build_application():
     settings = load_settings()
     token = settings.require("TELEGRAM_BOT_TOKEN")
-    allowed_user_ids = parse_allowed_user_ids(
-        settings.require("TELEGRAM_ALLOWED_USER_IDS")
-    )
+    allowed_user_ids = parse_allowed_user_ids(settings.text("TELEGRAM_ALLOWED_USER_IDS"))
 
     app = Application.builder().token(token).build()
-    allowed_users = filters.User(user_id=list(allowed_user_ids))
+    allowed_users = (
+        filters.User(user_id=list(allowed_user_ids))
+        if allowed_user_ids
+        else None
+    )
 
     app.add_handler(CommandHandler("start", start_command, filters=allowed_users))
     app.add_handler(CommandHandler("help", help_command, filters=allowed_users))
@@ -512,7 +512,8 @@ def build_application():
     app.add_handler(CommandHandler("resolve", resolve_command, filters=allowed_users))
     app.add_handler(CommandHandler("resolve_full", resolve_full_command, filters=allowed_users))
     app.add_handler(CommandHandler("job", job_command, filters=allowed_users))
-    app.add_handler(MessageHandler(filters.COMMAND & ~allowed_users, access_denied_command))
+    if allowed_users:
+        app.add_handler(MessageHandler(filters.COMMAND & ~allowed_users, access_denied_command))
 
     return app
 
