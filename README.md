@@ -112,6 +112,17 @@ integration-тестов. Сервис `test` ждёт healthy PostgreSQL и з�
 `TELEGRAM_BOT_TOKEN` в `.env`; `TELEGRAM_ALLOWED_USER_IDS` можно задать как
 необязательное ограничение доступа.
 
+На Windows/WSL после первого `git pull` дальнейшее обновление runtime выполняется
+одной командой:
+
+```bash
+./update.sh
+```
+
+Скрипт делает только fast-forward pull, проверяет Compose, пересобирает `api`,
+`worker` и `bot`, затем показывает состояние контейнеров. Локальный `.env` остаётся
+на Windows и не попадает в Git.
+
 ## API
 
 | Method | Endpoint | Назначение |
