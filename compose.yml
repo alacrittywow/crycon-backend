@@ -37,7 +37,32 @@ services:
       <<: *crycon-environment
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_ALLOWED_USER_IDS: ${TELEGRAM_ALLOWED_USER_IDS:-}
+      CRYCON_MINIAPP_URL: ${CRYCON_MINIAPP_URL:-}
     restart: unless-stopped
+
+  miniapp-api:
+    profiles: ["miniapp"]
+    build: .
+    command: ["uvicorn", "crycon.api:create_miniapp", "--factory", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      CRYCON_ENV_FILE: ""
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_KEY: ${SUPABASE_KEY:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_ALLOWED_USER_IDS: ${TELEGRAM_ALLOWED_USER_IDS:-}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=4)"]
+      interval: 5s
+      timeout: 5s
+      retries: 8
+
+  miniapp-tunnel:
+    profiles: ["miniapp"]
+    image: cloudflare/cloudflared:latest
+    command: ["tunnel", "--no-autoupdate", "--protocol", "http2", "--url", "http://miniapp-api:8000"]
+    depends_on:
+      miniapp-api:
+        condition: service_healthy
 
   postgres-test:
     image: postgres:16-alpine

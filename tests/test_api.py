@@ -1,4 +1,8 @@
 import asyncio
+import hmac
+import json
+import time
+from urllib.parse import urlencode
 
 from httpx import ASGITransport, AsyncClient
 
@@ -53,6 +57,44 @@ def test_readiness_checks_storage_separately_from_liveness():
             return False
 
     assert request(create_app(UnreadyRepository()), "GET", "/ready").status_code == 503
+
+
+def test_miniapp_serves_html_and_assets_without_storage():
+    app = create_app()
+    index = request(app, "GET", "/miniapp/")
+    assert index.status_code == 200
+    assert 'id="search-form"' in index.text
+    assert request(app, "GET", "/miniapp/app.js").status_code == 200
+    assert request(app, "GET", "/miniapp/style.css").status_code == 200
+
+
+def test_miniapp_candidate_routes_require_fresh_signed_telegram_data():
+    token = "demo-test-token"
+    app = create_app(
+        FakeCandidateRepository(candidates=[candidate(1, "alice", 90)]),
+        telegram_token=token,
+        telegram_allowed_ids=frozenset({42}),
+    )
+
+    def sign(user_id, timestamp):
+        fields = {"auth_date": str(timestamp), "user": json.dumps({"id": user_id})}
+        canonical = "\n".join(f"{key}={value}" for key, value in sorted(fields.items()))
+        secret = hmac.digest(b"WebAppData", token.encode(), "sha256")
+        fields["hash"] = hmac.digest(secret, canonical.encode(), "sha256").hex()
+        return urlencode(fields)
+
+    now = int(time.time())
+    header = "X-Telegram-Init-Data"
+    signed = sign(42, now)
+    for path in ("/candidates", "/search?q=alice", "/candidates/1", "/candidates/1/evidence"):
+        assert request(app, "GET", path).status_code == 401
+        response = request(app, "GET", path, headers={header: signed})
+        assert response.status_code == 200
+        assert response.headers["Cache-Control"] == "private, no-store"
+
+    for invalid in (signed.replace("42", "43"), sign(42, now - 3601), signed + "&user=other"):
+        assert request(app, "GET", "/candidates", headers={header: invalid}).status_code == 401
+    assert request(app, "GET", "/candidates", headers={header: sign(43, now)}).status_code == 403
 
 
 def test_candidate_list_has_bounded_cursorless_pagination():

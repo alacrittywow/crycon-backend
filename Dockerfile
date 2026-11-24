@@ -11,6 +11,7 @@ RUN groupadd --system crycon \
 
 COPY pyproject.toml requirements.txt requirements-dev.txt ./
 COPY src ./src
+COPY miniapp ./miniapp
 COPY *.py ./
 
 RUN python -m pip install --no-cache-dir .

@@ -19,7 +19,9 @@ import html
 import asyncio
 from typing import Any, Dict, List
 
-from telegram import Update
+from urllib.parse import urlsplit
+
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, WebAppInfo
 from telegram.constants import ParseMode
 from telegram.ext import (
     Application,
@@ -33,6 +35,7 @@ from crycon.config import load_settings
 from crycon.job_payloads import IdentityResolutionPayload, serialize_job_payload
 from crycon.supabase_jobs import SupabaseParserJobRepository
 from crycon.supabase_repository import SupabaseCandidateRepository
+from crycon.telegram_auth import parse_allowed_user_ids
 from db_supabase import (
     get_supabase_client,
     clean_text,
@@ -40,22 +43,6 @@ from db_supabase import (
 )
 
 MAX_MESSAGE_LEN = 3900
-
-
-def parse_allowed_user_ids(value: str) -> frozenset[int]:
-    """Parse an optional Telegram allowlist without exposing its contents."""
-    items = [item for item in re.split(r"[\s,|]+", value.strip()) if item]
-    if not items:
-        return frozenset()
-
-    try:
-        user_ids = frozenset(int(item) for item in items)
-    except ValueError:
-        raise ValueError("TELEGRAM_ALLOWED_USER_IDS must contain only numeric user IDs") from None
-
-    if any(user_id <= 0 for user_id in user_ids):
-        raise ValueError("TELEGRAM_ALLOWED_USER_IDS must contain only positive user IDs")
-    return user_ids
 
 
 def esc(value: Any) -> str:
@@ -278,10 +265,17 @@ Show contacts, wallets and evidence.
 Resolve X/ENS/Farcaster/Lens/wallet via public identity signals.
 """.strip()
 
+    miniapp_url = context.bot_data.get("miniapp_url")
+    markup = None
+    if miniapp_url and update.effective_chat.type == "private":
+        button = InlineKeyboardButton("Open Crycon", web_app=WebAppInfo(url=miniapp_url))
+        markup = InlineKeyboardMarkup([[button]])
+
     await update.message.reply_text(
         text,
         parse_mode=ParseMode.HTML,
         disable_web_page_preview=True,
+        reply_markup=markup,
     )
 
 
@@ -497,6 +491,16 @@ def build_application():
     allowed_user_ids = parse_allowed_user_ids(settings.text("TELEGRAM_ALLOWED_USER_IDS"))
 
     app = Application.builder().token(token).build()
+    miniapp_url = settings.text("CRYCON_MINIAPP_URL")
+    if miniapp_url:
+        try:
+            parsed = urlsplit(miniapp_url)
+            valid_url = parsed.scheme == "https" and parsed.hostname and not parsed.username
+        except ValueError:
+            valid_url = False
+        if not valid_url:
+            raise ValueError("CRYCON_MINIAPP_URL must be an HTTPS URL") from None
+        app.bot_data["miniapp_url"] = miniapp_url
     allowed_users = (
         filters.User(user_id=list(allowed_user_ids))
         if allowed_user_ids

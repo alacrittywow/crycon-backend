@@ -1,0 +1,142 @@
+:root {
+  color-scheme: dark;
+  --ink: #111;
+  --paper: #f4f3ef;
+  --muted: #b2b2ad;
+  --rule: #4a4a48;
+  font-family: system-ui, sans-serif;
+  background: var(--ink);
+  color: var(--paper);
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; }
+button, a, input, summary { -webkit-tap-highlight-color: transparent; }
+button, input { font: inherit; }
+button, summary { cursor: pointer; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+[hidden] { display: none !important; }
+
+.shell {
+  width: min(100%, 45rem);
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin-inline: auto;
+  padding: max(1.25rem, env(safe-area-inset-top)) 1.25rem 0;
+  display: flex;
+  flex-direction: column;
+}
+.masthead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: 1rem;
+}
+.wordmark {
+  font-size: clamp(2rem, 9vw, 3.75rem);
+  font-weight: 950;
+  letter-spacing: -.07em;
+  line-height: 1;
+  text-decoration: none;
+}
+.demo { color: var(--muted); font-size: .875rem; }
+main { flex: 1; padding-block: 1.25rem 2rem; }
+form { display: flex; gap: .5rem; margin-bottom: 1.25rem; }
+input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  padding: .65rem .75rem;
+  background: var(--ink);
+  color: var(--paper);
+}
+button { min-height: 44px; padding: .5rem .8rem; border: 1px solid var(--paper); }
+form button { background: var(--paper); color: var(--ink); font-weight: 700; }
+.profile {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  border: 1px solid var(--rule);
+  align-items: start;
+}
+.profile-name { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; padding: .85rem; }
+.initials {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  aspect-ratio: 1;
+  background: var(--paper);
+  color: var(--ink);
+  font-weight: 900;
+}
+h1, h2, p { margin: 0; }
+.profile h1 { font-size: clamp(1.15rem, 4.4vw, 2rem); line-height: 1.05; }
+.handle { color: var(--muted); font-size: .875rem; margin-top: .35rem; }
+.mono, code, .score strong { font-family: ui-monospace, monospace; }
+.score { border-left: 1px solid var(--rule); position: relative; }
+.score summary { list-style: none; padding: .85rem; }
+.score summary::-webkit-details-marker { display: none; }
+.score strong { font-size: clamp(1.35rem, 5vw, 2.4rem); letter-spacing: -.07em; }
+.score span { display: block; color: var(--muted); font-size: .875rem; }
+.score span::after { content: ' +'; }
+.score[open] span::after { content: ' −'; }
+.score-detail {
+  position: absolute;
+  z-index: 1;
+  top: calc(100% + .25rem);
+  right: 0;
+  width: min(15rem, 75vw);
+  background: var(--paper);
+  color: var(--ink);
+  padding: .8rem;
+  border: 1px solid var(--rule);
+}
+.wallet { display: flex; flex-wrap: wrap; align-items: center; gap: .65rem; padding-block: .65rem; }
+.wallet code { color: var(--muted); overflow-wrap: anywhere; }
+.copy { margin-left: auto; color: var(--paper); background: transparent; border-color: var(--rule); }
+.sources { margin-top: .75rem; }
+.section-heading {
+  background: var(--paper);
+  color: var(--ink);
+  font-weight: 900;
+  font-size: 1.35rem;
+  letter-spacing: -.04em;
+  padding: .55rem .75rem;
+}
+ul { padding: 0; margin: 0; list-style: none; }
+.source, .candidate {
+  display: grid;
+  grid-template-columns: 5rem 1fr auto;
+  align-items: center;
+  gap: .65rem;
+  min-height: 48px;
+  padding: .5rem .75rem;
+  border-bottom: 1px solid var(--rule);
+}
+.source .mono { color: var(--muted); overflow-wrap: anywhere; }
+.candidate {
+  width: 100%;
+  grid-template-columns: 1fr auto;
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  background: transparent;
+  color: var(--paper);
+}
+.candidate:hover, .copy:hover, nav a:hover { background: #292929; }
+.empty { padding: 1rem 0; color: var(--muted); }
+nav {
+  position: sticky;
+  bottom: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  background: var(--ink);
+  border-top: 1px solid var(--rule);
+  padding: .5rem 0 max(.75rem, env(safe-area-inset-bottom));
+}
+nav a { display: grid; place-items: center; min-height: 44px; text-decoration: none; font-size: .875rem; }
+nav a[aria-current] { background: var(--paper); color: var(--ink); font-weight: 750; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }

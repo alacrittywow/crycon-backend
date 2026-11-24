@@ -1,9 +1,11 @@
 """FastAPI application with repository dependency injection."""
 
 import secrets
+from pathlib import Path as FilePath
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Path, Query, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Path, Query, Response, status
+from fastapi.staticfiles import StaticFiles
 
 from crycon.api_models import (
     CandidateDetail,
@@ -20,12 +22,16 @@ from crycon.job_payloads import JobPayload, serialize_job_payload
 from crycon.repository import CandidateRepository
 from crycon.supabase_repository import SupabaseCandidateRepository
 from crycon.supabase_jobs import SupabaseParserJobRepository
+from crycon.telegram_auth import parse_allowed_user_ids, telegram_user_id
 
 
 def create_app(
     repository: CandidateRepository | None = None,
     job_repository: ParserJobRepository | None = None,
     admin_api_key: str | None = None,
+    *,
+    telegram_token: str | None = None,
+    telegram_allowed_ids: frozenset[int] = frozenset(),
 ) -> FastAPI:
     app = FastAPI(
         title="Crycon API",
@@ -43,6 +49,19 @@ def create_app(
 
             app.state.supabase_client = get_supabase_client()
         return app.state.supabase_client
+
+    def require_candidate_access(
+        response: Response,
+        init_data: Annotated[str, Header(alias="X-Telegram-Init-Data")] = "",
+    ) -> None:
+        if telegram_token is None:
+            return
+        response.headers["Cache-Control"] = "private, no-store"
+        user_id = telegram_user_id(init_data, telegram_token)
+        if user_id is None:
+            raise HTTPException(status_code=401, detail="Open Crycon from Telegram")
+        if telegram_allowed_ids and user_id not in telegram_allowed_ids:
+            raise HTTPException(status_code=403, detail="Telegram account has no access")
 
     def get_repository() -> CandidateRepository:
         current = app.state.candidate_repository
@@ -73,7 +92,12 @@ def create_app(
         if api_key is None or not secrets.compare_digest(api_key, expected):
             raise HTTPException(status_code=401, detail="Invalid API key")
 
-    Repository = Annotated[CandidateRepository, Depends(get_repository)]
+    def get_candidate_repository(
+        _: Annotated[None, Depends(require_candidate_access)],
+    ) -> CandidateRepository:
+        return get_repository()
+
+    Repository = Annotated[CandidateRepository, Depends(get_candidate_repository)]
     JobRepository = Annotated[ParserJobRepository, Depends(get_job_repository)]
     JobAdmin = Annotated[None, Depends(require_job_admin)]
 
@@ -215,7 +239,23 @@ def create_app(
             raise HTTPException(status_code=404, detail="Parser job not found")
         return ParserJob.model_validate(job)
 
+    miniapp = FilePath(__file__).resolve().parents[2] / "miniapp"
+    if not (miniapp / "index.html").is_file():
+        miniapp = FilePath.cwd() / "miniapp"
+    if (miniapp / "index.html").is_file():
+        app.mount("/miniapp", StaticFiles(directory=miniapp, html=True), name="miniapp")
     return app
+
+
+def create_miniapp() -> FastAPI:
+    from crycon.config import load_settings
+
+    settings = load_settings()
+    return create_app(
+        admin_api_key="",
+        telegram_token=settings.require("TELEGRAM_BOT_TOKEN"),
+        telegram_allowed_ids=parse_allowed_user_ids(settings.text("TELEGRAM_ALLOWED_USER_IDS")),
+    )
 
 
 app = create_app()
